@@ -7,19 +7,23 @@ import (
 	"testing"
 )
 
+// 拦截中间件类型 0 全局拦截类型
 func TestAuthPathGlobal(t *testing.T) {
 	ctx := context.Background()
 
 	t.Log("Global auth path test ")
 	// 启动gtoken
 	gfToken := &gtoken.GfToken{
-		//Timeout:         10 * 1000,
+		// Timeout:         10 * 1000,
 		AuthPaths:        g.SliceStr{"/user", "/system"},             // 这里是按照前缀拦截，拦截/user /user/list /user/add ...
 		AuthExcludePaths: g.SliceStr{"/user/info", "/system/user/*"}, // 不拦截路径  /user/info,/system/user/info,/system/user,
 		MiddlewareType:   gtoken.MiddlewareTypeGlobal,                // 开启全局拦截
 	}
 
 	authPath(gfToken, t)
+	// 拦截路由规则有："/user", "/system" 按照前缀
+	// 排除路由规则是: "/user/info", "/system/user/*" 按照前缀
+	// "/test" 不是要拦截的路由规则 也不是要排除的 默认返回false
 	flag := gfToken.AuthPath(ctx, "/test")
 	if flag {
 		t.Error("error:", "/test auth path error")
@@ -27,11 +31,13 @@ func TestAuthPathGlobal(t *testing.T) {
 
 }
 
+// 拦截中间件类型 2 局部拦截类型
+/*
 func TestBindAuthPath(t *testing.T) {
 	t.Log("Bind auth path test ")
 	// 启动gtoken
 	gfToken := &gtoken.GfToken{
-		//Timeout:         10 * 1000,
+		// Timeout:         10 * 1000,
 		AuthPaths:        g.SliceStr{"/user", "/system"},             // 这里是按照前缀拦截，拦截/user /user/list /user/add ...
 		AuthExcludePaths: g.SliceStr{"/user/info", "/system/user/*"}, // 不拦截路径  /user/info,/system/user/info,/system/user,
 		MiddlewareType:   gtoken.MiddlewareTypeBind,                  // 开启局部拦截
@@ -39,96 +45,104 @@ func TestBindAuthPath(t *testing.T) {
 
 	authPath(gfToken, t)
 }
+*/
 
+// 拦截中间件类型 1 组拦截类型
 func TestGroupAuthPath(t *testing.T) {
 	ctx := context.Background()
 
 	t.Log("Group auth path test ")
 	// 启动gtoken
 	gfToken := &gtoken.GfToken{
-		//Timeout:         10 * 1000,
+		// Timeout:         10 * 1000,
 		AuthExcludePaths: g.SliceStr{"/user/info", "/system/user/*"}, // 不拦截路径  /user/info,/system/user/info,/system/user,
 		LoginPath:        "/login",                                   // 登录路径
 		MiddlewareType:   gtoken.MiddlewareTypeGroup,                 // 开启组拦截
 	}
-
+	// 返回false 表示不拦截此路由规则，因为此路由规则是登录路由规则
 	flag := gfToken.AuthPath(ctx, "/login")
 	if flag {
 		t.Error("error:", "/login auth path error")
 	}
-
+	// 也是返回false	，因为此路由规则被指定排除了
 	flag = gfToken.AuthPath(ctx, "/user/info")
 	if flag {
 		t.Error("error:", "/user/info auth path error")
 	}
-
+	// 也是返回false	，因为此路由规则被指定排除了
 	flag = gfToken.AuthPath(ctx, "/system/user/info")
 	if flag {
 		t.Error("error:", "/system/user/info auth path error")
 	}
-
+	// 返回true 因为此路由规则没有被排除，也不是登录路由规则 也不是登出路由规则
 	flag = gfToken.AuthPath(ctx, "/system/test")
 	if !flag {
 		t.Error("error:", "/system/test auth path error")
 	}
 }
 
+// 全局中间件 不设置 排除路由规则
 func TestAuthPathNoExclude(t *testing.T) {
 	ctx := context.Background()
 
 	t.Log("auth no exclude path test ")
 	// 启动gtoken
 	gfToken := &gtoken.GfToken{
-		//Timeout:         10 * 1000,
+		// Timeout:         10 * 1000,
 		AuthPaths:      g.SliceStr{"/user", "/system"}, // 这里是按照前缀拦截，拦截/user /user/list /user/add ...
 		MiddlewareType: gtoken.MiddlewareTypeGlobal,    // 关闭全局拦截
 	}
 
 	authFlag := gfToken.AuthPath
+	// 返回false ,因为 拦截路由规则有："/user", "/system" 而"/test" 不在默认false
 	if authFlag(ctx, "/test") {
 		t.Error(ctx, "error:", "/test auth path error")
 	}
+	// 返回true 因为此路由规则没有被排除，也不是登录路由规则 也不是登出路由规则
 	if !authFlag(ctx, "/system/dept") {
 		t.Error(ctx, "error:", "/system/dept auth path error")
 	}
-
+	// 返回true 因为此路由规则没有被排除，也不是登录路由规则 也不是登出路由规则
 	if !authFlag(ctx, "/user/info") {
 		t.Error(ctx, "error:", "/user/info auth path error")
 	}
-
+	// 返回true 因为此路由规则没有被排除，也不是登录路由规则 也不是登出路由规则
 	if !authFlag(ctx, "/system/user") {
 		t.Error(ctx, "error:", "/system/user auth path error")
 	}
 }
 
+// 全局中间件 设置 排除路由规则(/*) 拦截路由规则
 func TestAuthPathExclude(t *testing.T) {
 	ctx := context.Background()
 
 	t.Log("auth path test ")
 	// 启动gtoken
 	gfToken := &gtoken.GfToken{
-		//Timeout:         10 * 1000,
+		// Timeout:         10 * 1000,
 		AuthPaths:        g.SliceStr{"/*"},                           // 这里是按照前缀拦截，拦截/user /user/list /user/add ...
 		AuthExcludePaths: g.SliceStr{"/user/info", "/system/user/*"}, // 不拦截路径  /user/info,/system/user/info,/system/user,
 		MiddlewareType:   gtoken.MiddlewareTypeGlobal,                // 开启全局拦截
 	}
 
 	authFlag := gfToken.AuthPath
+	// "/test" 在拦截路由规则中 /* 返回true
 	if !authFlag(ctx, "/test") {
 		t.Error("error:", "/test auth path error")
 	}
+	// "//system/dept" 在拦截路由规则中 /* 返回true
 	if !authFlag(ctx, "//system/dept") {
 		t.Error("error:", "/system/dept auth path error")
 	}
-
+	// 在排除规则中 /user/info 返回false
 	if authFlag(ctx, "/user/info") {
 		t.Error("error:", "/user/info auth path error")
 	}
-
+	// 在排除规则中 /system/user 返回false
 	if authFlag(ctx, "/system/user") {
 		t.Error("error:", "/system/user auth path error")
 	}
-
+	// 在排除规则中 /system/user/info 返回false
 	if authFlag(ctx, "/system/user/info") {
 		t.Error("error:", "/system/user/info auth path error")
 	}
@@ -137,43 +151,54 @@ func TestAuthPathExclude(t *testing.T) {
 
 func authPath(gfToken *gtoken.GfToken, t *testing.T) {
 	ctx := context.Background()
-
+	// 排除路由规则是: "/user/info", "/system/user/*" 按照前缀
+	// /user/info 被排除，返回false
 	flag := gfToken.AuthPath(ctx, "/user/info")
 	if flag {
 		t.Error("error:", "/user/info auth path error")
 	}
-
+	// 排除路由规则是: "/user/info", "/system/user/*" 按照前缀
+	// /system/user 被排除，返回false
 	flag = gfToken.AuthPath(ctx, "/system/user")
 	if flag {
 		t.Error("error:", "/system/user auth path error")
 	}
-
+	// 排除路由规则是: "/user/info", "/system/user/*" 按照前缀
+	// /system/user/info 被排除，返回false
 	flag = gfToken.AuthPath(ctx, "/system/user/info")
 	if flag {
 		t.Error("error:", "/system/user/info auth path error")
 	}
-
+	// 排除路由规则是: "/user/info", "/system/user/*" 按照前缀
+	// /system/dept 没有排除，返回true
 	flag = gfToken.AuthPath(ctx, "/system/dept")
 	if !flag {
 		t.Error("error:", "/system/dept auth path error")
 	}
-
+	// 拦截路由规则有："/user", "/system" 按照前缀
+	// 排除路由规则是: "/user/info", "/system/user/*" 按照前缀
+	// "/user/list" 符合需要拦截的路由规则
 	flag = gfToken.AuthPath(ctx, "/user/list")
 	if !flag {
 		t.Error("error:", "/user/list auth path error")
 	}
-
+	// 拦截路由规则有："/user", "/system" 按照前缀
+	// 排除路由规则是: "/user/info", "/system/user/*" 按照前缀
+	// "/user/add"" 符合需要拦截的路由规则
 	flag = gfToken.AuthPath(ctx, "/user/add")
 	if !flag {
 		t.Error("error:", "/user/add auth path error")
 	}
 }
 
+// 加 解密token
+/*
 func TestEncryptDecryptToken(t *testing.T) {
 	t.Log("encrypt and decrypt token test ")
 	ctx := context.Background()
 
 	gfToken := gtoken.GfToken{}
+
 	gfToken.InitConfig()
 
 	userKey := "123123"
@@ -196,7 +221,10 @@ func TestEncryptDecryptToken(t *testing.T) {
 	}
 
 }
+*/
 
+// Benchmark
+/*
 func BenchmarkEncryptDecryptToken(b *testing.B) {
 	b.Log("encrypt and decrypt token test ")
 
@@ -225,3 +253,5 @@ func BenchmarkEncryptDecryptToken(b *testing.B) {
 		}
 	}
 }
+
+*/

@@ -2,26 +2,28 @@ package gtoken
 
 import (
 	"encoding/json"
+	"github.com/gogf/gf/v2/frame/g"
+
 	"github.com/gogf/gf/v2/container/gvar"
 	"github.com/gogf/gf/v2/util/gconv"
 )
 
 const (
-	SUCCESS      = 0
-	FAIL         = -1
-	ERROR        = -99
-	UNAUTHORIZED = -401
+	SUCCESS      = 0    // 正常
+	FAIL         = -1   // 失败
+	ERROR        = -99  // 异常
+	UNAUTHORIZED = -401 // 未认证
 )
 
 type Resp struct {
-	Code int         `json:"code"`
-	Msg  string      `json:"msg"`
-	Data interface{} `json:"data"`
+	Status int    `json:"status"`
+	Msg    string `json:"msg"`
+	Data   g.Map  `json:"data"`
 }
 
 // Success 获取Data值转字符串
 func (resp Resp) Success() bool {
-	return resp.Code == SUCCESS
+	return resp.Status == SUCCESS
 }
 
 // DataString 获取Data转字符串
@@ -59,31 +61,31 @@ func (resp Resp) Json() string {
 }
 
 // Succ 成功
-func Succ(data interface{}) Resp {
-	return Resp{SUCCESS, "success", data}
+func Succ(msg string) Resp {
+	return Resp{SUCCESS, msg, g.Map{}}
 }
 
 // Fail 失败
 func Fail(msg string) Resp {
-	return Resp{FAIL, msg, ""}
+	return Resp{FAIL, msg, g.Map{}}
 }
 
 // FailData 失败设置Data
 func FailData(msg string, data interface{}) Resp {
-	return Resp{FAIL, msg, data}
+	return Resp{FAIL, msg, g.Map{}}
 }
 
 // Error 错误
 func Error(msg string) Resp {
-	return Resp{ERROR, msg, ""}
+	return Resp{ERROR, msg, g.Map{}}
 }
 
 // ErrorData 错误设置Data
 func ErrorData(msg string, data interface{}) Resp {
-	return Resp{ERROR, msg, data}
+	return Resp{ERROR, msg, g.Map{}}
 }
 
 // Unauthorized 认证失败
 func Unauthorized(msg string, data interface{}) Resp {
-	return Resp{UNAUTHORIZED, msg, data}
+	return Resp{UNAUTHORIZED, msg, g.Map{}}
 }

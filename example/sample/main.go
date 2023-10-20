@@ -10,7 +10,7 @@ import (
 
 var TestServerName string
 
-//var TestServerName string = "gtoken"
+// var TestServerName string = "gtoken"
 
 func main() {
 	ctx := context.TODO()
@@ -25,6 +25,7 @@ func main() {
 	initRouter(s)
 
 	g.Log().Info(ctx, "########service finish.")
+	s.SetPort(8999)
 	s.Run()
 }
 
@@ -39,41 +40,40 @@ func initRouter(s *ghttp.Server) {
 
 	// 不认证接口
 	s.Group("/", func(group *ghttp.RouterGroup) {
+		// 添加跨域中间件
 		group.Middleware(CORS)
-
 		// 调试路由
 		group.ALL("/hello", func(r *ghttp.Request) {
 			r.Response.WriteJson(gtoken.Succ("hello"))
 		})
 	})
+	// region ========== 准备GfToken对象用于用户接口 ==========
 
-	MultiLogin, err := g.Cfg().Get(ctx, "gToken.MultiLogin")
-	if err != nil {
-		panic(err)
-	}
-	// 认证接口
-	loginFunc := Login
+	// 登陆前置函数 返回设备ID 和 用户ID
+	loginFunc := LoginBeforeFunc
 	// 启动gtoken
 	gfToken = &gtoken.GfToken{
 		ServerName:       TestServerName,
-		LoginPath:        "/login",
+		LoginPath:        "/login", // 登陆路由规则，默认注册全部http方法
 		LoginBeforeFunc:  loginFunc,
 		LogoutPath:       "/user/logout",
 		AuthExcludePaths: g.SliceStr{"/user/info", "/system/user/info"}, // 不拦截路径 /user/info,/system/user/info,/system/user,
-		MultiLogin:       MultiLogin.Bool(),
 	}
+	// endregion
 	s.Group("/", func(group *ghttp.RouterGroup) {
+		// 添加跨域中间件
 		group.Middleware(CORS)
+		// 添加gtoken认证中间件
 		err := gfToken.Middleware(ctx, group)
 		if err != nil {
 			panic(err)
 		}
-
+		// 为路由规则绑定handler (默认支持全部HTTP方法)
 		group.ALL("/system/user", func(r *ghttp.Request) {
 			r.Response.WriteJson(gtoken.Succ("system user"))
 		})
 		group.ALL("/user/data", func(r *ghttp.Request) {
-			r.Response.WriteJson(gfToken.GetTokenData(r))
+			r.Response.WriteJson(gfToken.GetAccessToken(r))
 		})
 		group.ALL("/user/info", func(r *ghttp.Request) {
 			r.Response.WriteJson(gtoken.Succ("user info"))
@@ -83,23 +83,28 @@ func initRouter(s *ghttp.Server) {
 		})
 	})
 
+	// region ========== 准备GfToken对象用于admin接口 ==========
+
 	// 启动gtoken
 	gfAdminToken = &gtoken.GfToken{
 		ServerName: TestServerName,
-		//Timeout:         10 * 1000,
+		// Timeout:         10 * 1000,
 		LoginPath:        "/login",
 		LoginBeforeFunc:  loginFunc,
 		LogoutPath:       "/user/logout",
 		AuthExcludePaths: g.SliceStr{"/admin/user/info", "/admin/system/user/info"}, // 不拦截路径 /user/info,/system/user/info,/system/user,
-		MultiLogin:       MultiLogin.Bool(),
 	}
+
+	// endregion
 	s.Group("/admin", func(group *ghttp.RouterGroup) {
+		// 添加跨域中间件
 		group.Middleware(CORS)
+		// 添加gtoken认证中间件
 		err := gfAdminToken.Middleware(ctx, group)
 		if err != nil {
 			panic(err)
 		}
-
+		// 为路由规则绑定handler (默认支持全部HTTP方法)
 		group.ALL("/system/user", func(r *ghttp.Request) {
 			r.Response.WriteJson(gtoken.Succ("system user"))
 		})
@@ -112,7 +117,8 @@ func initRouter(s *ghttp.Server) {
 	})
 }
 
-func Login(r *ghttp.Request) (string, interface{}) {
+// LoginBeforeFunc 返回设备ID 和 用户ID
+func LoginBeforeFunc(r *ghttp.Request) (int8, int8) {
 	username := r.Get("username").String()
 	passwd := r.Get("passwd").String()
 
@@ -120,11 +126,10 @@ func Login(r *ghttp.Request) (string, interface{}) {
 		r.Response.WriteJson(gtoken.Fail("账号或密码错误."))
 		r.ExitAll()
 	}
-	// 唯一标识，扩展参数user data
-	return username, "1"
+	return 1, 6
 }
 
-// 跨域
+// CORS 跨域
 func CORS(r *ghttp.Request) {
 	r.Response.CORSDefault()
 	r.Middleware.Next()
